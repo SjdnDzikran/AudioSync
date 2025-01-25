@@ -32,7 +32,7 @@ By syncing **audio playback speed** instead of video:
 ## Installation 🛠️  
 
 ### For Users  
-1. **Download** the latest release (`.zip` file) from [Releases](https://github.com/your-username/AudioSync/releases).  
+1. **Download** the latest release (`.zip` file) from [Releases](https://github.com/SjdnDzikran/AudioSync/releases).  
 2. **Extract** the ZIP file to a folder.  
 3. **Load the extension**:  
    - Open Chrome/Edge and go to `chrome://extensions`.  
@@ -59,7 +59,7 @@ By syncing **audio playback speed** instead of video:
 ---
 
 ## Credits 🙌  
-AudioSync is a modified version of [FrameSync](https://github.com/original-author/framesync-repo), licensed under [GPLv2](LICENSE). Key changes include:  
+AudioSync is a modified version of [FrameSync](https://github.com/maggch97/Frame-Sync.git), licensed under [GPLv2](LICENSE). Key changes include:  
 - Replaced frame delays with audio speed adjustment.  
 - Added Web Audio API for pitch correction.  
 - Refactored UI for latency tuning.  
@@ -71,4 +71,4 @@ Licensed under **GPLv2**. See [LICENSE](LICENSE) for details.
 
 ---
 
-*Built ❤️ and ☕ by Dzikran – because synced audio and vibrant visuals should coexist.*  
+*Built with ❤️ and ☕ by Dzikran – because synced audio and vibrant visuals should coexist.*  
