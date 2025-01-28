@@ -1,7 +1,6 @@
 document.getElementById('startButton').addEventListener('click', startTest);
 const useThisDelayButton = document.getElementById('useThisDelayButton');
 const beepDuration = 0.2;
-let lastMeasuredDelay = 0; // Store the measured delay
 
 // Add button hover effects
 document.querySelectorAll('.md-button').forEach(button => {
@@ -12,14 +11,6 @@ document.querySelectorAll('.md-button').forEach(button => {
     button.addEventListener('mouseleave', () => {
         button.style.transform = 'none';
         button.style.boxShadow = 'none';
-    });
-});
-
-// Handle "Use This Delay" button click
-useThisDelayButton.addEventListener('click', () => {
-    chrome.storage.sync.set({ frameDelay: lastMeasuredDelay }, () => {
-        console.log('Delay saved:', lastMeasuredDelay);
-        window.close(); // Close measurement window after saving
     });
 });
 
@@ -37,14 +28,72 @@ async function startTest() {
 
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     try {
-        // ... [keep existing audio recording code] ...
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            resultElement.textContent = 'Microphone access required';
+            resultElement.style.color = '#EA4335';
+            return;
+        }
+        
+        resultElement.textContent = 'Recording...';
+        resultElement.style.color = getComputedStyle(document.documentElement).getPropertyValue('--md-ref-palette-primary');
+
+        const source = audioContext.createMediaStreamSource(stream);
+        const bufferSize = 4096;
+        const recorder = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        const audioData = [];
+
+        source.connect(recorder);
+        recorder.connect(audioContext.destination);
+        const recordingStartTime = audioContext.currentTime;
+
+        recorder.onaudioprocess = function (e) {
+            audioData.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        };
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const oscillator = audioContext.createOscillator();
+        oscillator.frequency.value = 12000;
+        oscillator.type = 'sine';
+        oscillator.connect(audioContext.destination);
+
+        const beepPlayTime = audioContext.currentTime;
+        oscillator.start();
+        oscillator.stop(beepPlayTime + beepDuration);
+
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        // Cleanup
+        recorder.disconnect();
+        source.disconnect();
+        stream.getTracks().forEach(track => track.stop());
+
+        // Process audio
+        const recordedAudio = new Float32Array(audioData.reduce((acc, val) => acc + val.length, 0));
+        let offset = 0;
+        audioData.forEach(chunk => {
+            recordedAudio.set(chunk, offset);
+            offset += chunk.length;
+        });
+
+        const sampleRate = audioContext.sampleRate;
+        const beepStartIndex = findBeepStart(recordedAudio, sampleRate);
+
+        drawWaveform(recordedAudio, canvasCtx, canvas.width, canvas.height, {
+            beepPlayTime,
+            beepHeardTime: beepStartIndex !== -1 ? recordingStartTime + (beepStartIndex / sampleRate) : null,
+            recordingStartTime,
+            duration: recordedAudio.length / sampleRate
+        }, sampleRate);
 
         if (beepStartIndex === -1) {
             resultElement.textContent = 'No beep detected';
             resultElement.style.color = '#EA4335';
         } else {
             const delay = ((recordingStartTime + (beepStartIndex / sampleRate)) - beepPlayTime) * 1000;
-            lastMeasuredDelay = delay; // Store the measured value
             const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-ref-palette-primary');
             resultElement.innerHTML = `<span style="color: ${primaryColor}">Measured delay: <b>${delay.toFixed(2)}ms</b></span>`;
             useThisDelayButton.style.display = 'flex';
