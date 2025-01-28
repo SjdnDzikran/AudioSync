@@ -1,30 +1,169 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>FrameSync</title>
+    <title>AudioSync</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
+        :root {
+            --md-ref-palette-primary: #8AB4F8;
+            --md-ref-palette-on-primary: #202124;
+            --md-ref-palette-primary-container: #174EA6;
+            --md-ref-palette-surface: #202124;
+            --md-ref-palette-on-surface: #E8EAED;
+            --md-ref-palette-outline: #5F6368;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            padding: 10px;
+            font-family: 'Roboto', Arial, sans-serif;
+            padding: 16px;
+            min-width: 300px;
+            background: var(--md-ref-palette-surface);
+            color: var(--md-ref-palette-on-surface);
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin: 0 0 20px 0;
+            color: var(--md-ref-palette-primary);
+            font-weight: 500;
+        }
+
+        .input-container {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--md-ref-palette-outline);
+            border-radius: 8px;
+            background: #2D2E30;
+            font-size: 14px;
+            color: var(--md-ref-palette-on-surface);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--md-ref-palette-primary);
+            box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .md-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #303134;
+            color: var(--md-ref-palette-primary);
+        }
+
+        .md-button--filled {
+            background: var(--md-ref-palette-primary);
+            color: var(--md-ref-palette-on-primary);
+        }
+
+        .md-button--filled:hover {
+            background: #AECBFA;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .md-button--tonal {
+            background: var(--md-ref-palette-primary-container);
+            color: var(--md-ref-palette-primary);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 8px 12px;
+            background: #303134;
+            border-radius: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #34A853;
+        }
+
+        .status-dot.paused {
+            background: #EA4335;
+        }
+
+        .note {
+            font-size: 12px;
+            color: #9AA0A6;
+            margin: 16px 0;
+            line-height: 1.5;
+        }
+
+        .footer {
+            margin-top: 20px;
+            border-top: 1px solid #3C4043;
+            padding-top: 16px;
+        }
+
+        .material-icons {
+            font-size: 18px;
+            vertical-align: middle;
         }
     </style>
 </head>
 
 <body>
     <h1>FrameSync</h1>
-    <p>Enter the frame delay in milliseconds.</p>
-    <input type="number" id="frameDelay" placeholder="Frame Delay (ms)" />
+    
+    <div class="input-container">
+        <input type="number" id="frameDelay" class="input-field" placeholder="Frame delay (ms)">
+    </div>
 
-    <a href="./measure.html" target="_blank"><button>Auto Measure</button></a>
-    <button id="pauseResumeButton">Pause Delay</button>
+    <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Active</span>
+    </div>
 
-    <p>You need to refresh the page to apply the changes.</p>
-    <hr>
-    <a href="https://github.com/maggch97/Frame-Sync/issues" target="_blank">Feedback</a>
-    <p style="color: gray;">This extension is still in early development. More convenient features are currently in progress. Stay tuned for future updates!</p>
-    <script src="./popup.js">
-    </script>
+    <div class="button-group">
+        <a href="./measure.html" target="_blank" class="md-button md-button--tonal">
+            <span class="material-icons">speed</span>
+            Auto Measure
+        </a>
+        <button id="pauseResumeButton" class="md-button md-button--filled">
+            <span class="material-icons">pause</span>
+            Pause
+        </button>
+    </div>
+
+    <p class="note">Refresh the page to apply changes</p>
+
+    <div class="footer">
+        <a href="https://github.com/maggch97/Frame-Sync/issues" target="_blank" class="md-button">
+            <span class="material-icons">feedback</span>
+            Feedback
+        </a>
+        <p class="note" style="margin-top: 12px;">
+            Early development version - More features coming soon!
+        </p>
+    </div>
+
+    <script src="./popup.js"></script>
 </body>
-
 </html>
