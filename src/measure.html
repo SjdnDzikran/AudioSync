@@ -1,53 +1,134 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
-    <title>Wireless Speaker Delay Measurement</title>
+    <title>Delay Measurement</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
+        :root {
+            --md-ref-palette-primary: #8AB4F8;
+            --md-ref-palette-on-primary: #202124;
+            --md-ref-palette-surface: #202124;
+            --md-ref-palette-on-surface: #E8EAED;
+            --md-ref-palette-outline: #5F6368;
         }
 
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: var(--md-ref-palette-surface);
+            color: var(--md-ref-palette-on-surface);
+            margin: 0;
+            padding: 24px;
+            min-width: 500px;
+        }
+
+        h1 {
+            color: var(--md-ref-palette-primary);
+            font-size: 24px;
+            margin: 0 0 32px 0;
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 16px;
+            margin: 24px 0;
+            justify-content: center;
+        }
+
+        .md-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #303134;
+            color: var(--md-ref-palette-primary);
+        }
+
+        .md-button--filled {
+            background: var(--md-ref-palette-primary);
+            color: var(--md-ref-palette-on-primary);
         }
 
         #result {
-            margin-top: 20px;
-            font-size: 18px;
+            font-size: 16px;
+            margin: 24px 0;
+            padding: 16px;
+            background: #303134;
+            border-radius: 8px;
+            min-height: 24px;
         }
 
         #waveform {
-            margin-top: 30px;
-            width: 80%;
+            width: 100%;
             height: 200px;
-            border: 1px solid #ccc;
+            background: #171717;
+            border-radius: 8px;
+            margin: 24px 0;
         }
 
-        p{
-            font-size: 16px;
+        .instructions {
+            background: #303134;
+            padding: 24px;
+            border-radius: 12px;
+            margin: 32px 0;
+        }
+
+        .instructions p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #9AA0A6;
+            margin: 12px 0;
+        }
+
+        .material-icons {
+            font-size: 20px;
+            vertical-align: middle;
+        }
+
+        hr {
+            border: 1px solid #3C4043;
+            margin: 24px 0;
         }
     </style>
 </head>
 
 <body>
-    <h1>Wireless Speaker Delay Measurement</h1>
-    <button id="startButton">Start Test</button>
-    <button id="useThisDelayButton" style="display: none;">Use This Delay</button>
-    <p id="result"></p>
-    <canvas id="waveform"></canvas>
-    <hr>
-    <h2>Usage Instructions:</h2>
-    <p>This tool plays a high-frequency sound to measure the delay of your wireless speaker. Please set your computer's sound output to the wireless speaker.</p>
-    <p>When prompted, grant microphone access. The tool will record a 4-second audio clip of the sound received through the microphone to calculate the delay. If the delay exceeds 4 seconds, the measurement may fail.</p>
-    <p>For best results, place your computer as close as possible to the speaker and keep the surrounding environment quiet.</p>
-    <b>If the measurement fails, you can manually set the delay in the extension popup.</b>
-    <script src="./measure.js">
-    </script>
-</body>
+    <h1><span class="material-icons">speed</span> Delay Measurement</h1>
+    
+    <div class="button-group">
+        <button id="startButton" class="md-button md-button--filled">
+            <span class="material-icons">play_arrow</span>
+            Start Test
+        </button>
+        <button id="useThisDelayButton" class="md-button" style="display: none;">
+            <span class="material-icons">save</span>
+            Use This Delay
+        </button>
+    </div>
 
+    <div id="result"></div>
+    <canvas id="waveform"></canvas>
+
+    <div class="instructions">
+        <h2><span class="material-icons">info</span> Instructions</h2>
+        <p>1. Set your computer's sound output to the wireless speaker</p>
+        <p>2. Grant microphone access when prompted</p>
+        <p>3. The test will play a high-frequency tone and measure the delay</p>
+        <p>4. Keep the environment quiet during measurement</p>
+        <p>5. Place microphone close to the speaker for best results</p>
+        <p style="color: var(--md-ref-palette-primary); margin-top: 16px;">
+            <span class="material-icons">warning</span> 
+            If measurement fails, manually set delay in extension popup
+        </p>
+    </div>
+
+    <script src="./measure.js"></script>
+</body>
 </html>
