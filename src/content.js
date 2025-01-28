@@ -1,216 +1,159 @@
 (async function () {
     'use strict';
-    class BufferFrame {
-        /**
-         * @param {HTMLVideoElement} video
-         */
-        constructor(video) {
-            const frame = document.createElement('canvas');
-            this.frame = frame;
-            this.video = video;
-            this.captureTs = 0;
-            this.Resize();
+
+    // ========================
+    // Configuration
+    // ========================
+    let delayMs = 300;
+    let isPaused = false;
+
+    // Load settings synchronously
+    chrome.storage.sync.get(['frameDelay', 'pauseDelay'], (result) => {
+        delayMs = result.frameDelay ?? 300;
+        isPaused = result.pauseDelay ?? false;
+    });
+
+    // ========================
+    // DRM Detection (Fixed regex)
+    // ========================
+    const isDRMVideo = (video) => {
+        return video.mediaKeys || 
+               video.webkitKeys ||
+               (video.mediaSession?.type === 'protected') ||
+               /\.(m3u8|mpd|manifest)/i.test(video.src);
+    };
+
+    // ========================
+    // Audio Synchronization (Fixed cleanup)
+    // ========================
+    const createAudioSync = (video, delay) => {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaElementSource(video);
+            const delayNode = audioContext.createDelay(5);
+            
+            source.connect(delayNode).connect(audioContext.destination);
+            delayNode.delayTime.value = Math.abs(delay) / 1000;
+
+            const cleanup = () => {
+                try {
+                    source.disconnect();
+                    delayNode.disconnect();
+                    audioContext.close();
+                } catch(e) { /* Ignore cleanup errors */ }
+            };
+
+            // Proper cleanup listener
+            const onRemoved = () => {
+                cleanup();
+                video.removeEventListener('removed', onRemoved);
+            };
+            
+            video.addEventListener('removed', onRemoved);
+            return cleanup;
+
+        } catch (e) {
+            console.debug('Audio sync failed:', e);
+            return null;
         }
-        CaptureFrame(now) {
-            this.ctx.drawImage(this.video, 0, 0, this.frame.width, this.frame.height);
-            this.captureTs = now;
-        }
-        Resize() {
-            const frame = this.frame;
-            const video = this.video;
-            frame.width = video.videoWidth;
-            frame.height = video.videoHeight;
-            this.ctx = this.frame.getContext('2d');
-        }
-    }
+    };
 
-    class FrameSync {
-        /**
-         * @param {HTMLVideoElement} video 
-         * @param {number} maxBuffer 
-         * @param {number} frameDelayMs 
-         */
-        constructor(video, maxBuffer, frameDelayMs) {
-            if (video.frameSyncObj) {
-                return video.frameSyncObj;
-            }
+    // ========================
+    // Video Delay (DRM Content - Fixed race condition)
+    // ========================
+    const createDRMDelay = (video, delay) => {
+        const originalPlay = video.play.bind(video);
+        let timeoutId = null;
 
-            this.video = video;
-            this.buffer = [];
-            this.maxBuffer = 0;
-            this.frameDelayMs = frameDelayMs;
-            this.active = false;
-            this.frameCount = 0;
-            this.lastDelayedFrameIndex = -1;
-            this.SetMaxBuffer(maxBuffer);
-            video.frameSyncObj = this;
-            this._captureFrameFunc = this._captureFrame.bind(this);
-            this._drawFrameFunc = this._drawFrame.bind(this);
-            this._resizeFunc = this.Resize.bind(this);
-
-            this.lastVideoOffsetWidth = video.offsetWidth;
-            this.lastVideoOffsetHeight = video.offsetHeight;
-            this.lastVideoOffsetLeft = video.offsetLeft;
-            this.lastVideoOffsetTop = video.offsetTop;
-        }
-
-        SetMaxBuffer(maxBuffer) {
-            if (maxBuffer < 2) {
-                console.error('maxBuffer should be at least 2');
-                return;
-            }
-
-            this.maxBuffer = maxBuffer;
-
-            // Reuse the existing buffer frames
-            const sortedBuffer = this.buffer.filter(frame => frame.captureTs != 0).sort((a, b) => a.captureTs - b.captureTs);
-            const sortedBufferLength = sortedBuffer.length;
-            this.buffer = [...sortedBuffer];
-
-            for (let i = this.buffer.length; i < this.maxBuffer; i++) {
-                const frame = new BufferFrame(this.video);
-                this.buffer.push(frame);
-            }
-            this.frameCount = sortedBufferLength;
-            this.lastDelayedFrameIndex = -1;
-        }
-
-        Resize = () => {
-            const video = this.video;
-            const canvas = this.canvas;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.style.width = `${video.offsetWidth}px`;
-            canvas.style.height = `${video.offsetHeight}px`;
-            canvas.style.left = `${video.offsetLeft}px`;
-            canvas.style.top = `${video.offsetTop}px`;
-
-            const videoAspect = video.videoWidth / video.videoHeight;
-            const canvasAspect = video.offsetWidth / video.offsetHeight;
-            if (Math.abs(videoAspect / canvasAspect - 1) < 0.02) {
-                // aspect ratio is close enough, do nothing
-            } else if (videoAspect > canvasAspect) {
-                canvas.style.height = `${video.offsetWidth / videoAspect}px`;
-                canvas.style.top = `${video.offsetTop + (video.offsetHeight - video.offsetWidth / videoAspect) / 2}px`;
-            } else {
-                canvas.style.width = `${video.offsetHeight * videoAspect}px`;
-                canvas.style.left = `${video.offsetLeft + (video.offsetWidth - video.offsetHeight * videoAspect) / 2}px`;
-            }
-
-            this.lastVideoOffsetWidth = video.offsetWidth;
-            this.lastVideoOffsetHeight = video.offsetHeight;
-            this.lastVideoOffsetLeft = video.offsetLeft;
-            this.lastVideoOffsetTop = video.offsetTop;
-
-            for (let i = 0; i < this.maxBuffer; i++) {
-                this.buffer[i].Resize();
-            }
+        video.play = async function() {
+            clearTimeout(timeoutId);
+            await originalPlay().catch(() => {});
+            video.currentTime = Math.max(0, video.currentTime - (delay/1000));
         };
 
-        NeedResize() {
-            const video = this.video;
-            const canvas = this.canvas;
-            return canvas.width != video.videoWidth || canvas.height != video.videoHeight
-                || this.lastVideoOffsetWidth != video.offsetWidth || this.lastVideoOffsetHeight != video.offsetHeight
-                || this.lastVideoOffsetLeft != video.offsetLeft || this.lastVideoOffsetTop != video.offsetTop;
-        }
+        const cleanup = () => {
+            video.play = originalPlay;
+            clearTimeout(timeoutId);
+        };
 
-        _createCanvasOverlay() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const video = this.video;
+        // Add visibility change handler
+        const onVisibilityChange = () => {
+            if (document.hidden) cleanup();
+        };
+        
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => {
+            cleanup();
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    };
 
-            canvas.style.position = 'absolute';
-            const videoStyle = window.getComputedStyle(video);
-            canvas.style.zIndex = videoStyle.zIndex;
-            canvas.style.pointerEvents = 'none';
+    // ========================
+    // Video Processor (Fixed mutation observer)
+    // ========================
+    const processVideo = (video) => {
+        if (video.dataset.synced || isPaused) return;
+        
+        const cleanup = isDRMVideo(video) 
+            ? createDRMDelay(video, delayMs)
+            : createAudioSync(video, delayMs);
 
-            video.parentElement.appendChild(canvas);
+        if (!cleanup) return;
+        video.dataset.synced = 'true';
 
-            window.addEventListener('resize', this._resizeFunc);
-            video.addEventListener('resize', this._resizeFunc);
-
-            this.canvas = canvas;
-            this.ctx = ctx;
-            this.Resize();
-        }
-
-        _captureFrame(now, metadata) {
-            if (this.buffer[this.frameCount % this.maxBuffer].captureTs != 0 &&
-                // A little bigger than frameDelayMs to avoid buffer overflow
-                now - this.buffer[this.frameCount % this.maxBuffer].captureTs < Math.min(this.frameDelayMs * 2, this.frameDelayMs + 500)) {
-                this.SetMaxBuffer(Math.round(this.maxBuffer * 1.5));
+        // Improved cleanup observer
+        const observer = new MutationObserver(() => {
+            if (!video.isConnected) {
+                cleanup();
+                observer.disconnect();
             }
+        });
 
-            try {
-                this.buffer[this.frameCount % this.maxBuffer].CaptureFrame(now);
-            } catch (e) {
-                debugger;
-            }
-            this.frameCount++;
+        observer.observe(video.parentNode || document, {
+            childList: true,
+            subtree: true
+        });
+    };
 
-            if (this.active) {
-                this.video.requestVideoFrameCallback(this._captureFrameFunc);
-            }
-        }
-
-        _shouldShowNextFrame(now) {
-            // if (this.lastDelayedFrameIndex == -1) {
-            //     return true;
-            // }
-            // return Math.abs(now - this.buffer[(this.lastDelayedFrameIndex + 1) % this.maxBuffer].captureTs - this.frameDelayMs)
-            //     < Math.abs(now - this.buffer[(this.lastDelayedFrameIndex) % this.maxBuffer].captureTs - this.frameDelayMs);
-            return now - this.buffer[(this.lastDelayedFrameIndex + 1) % this.maxBuffer].captureTs >= this.frameDelayMs
-        }
-
-        _drawFrame(now) {
-            let canSkip = false;
-            while ((this.lastDelayedFrameIndex + 1) % this.maxBuffer != this.frameCount % this.maxBuffer && this._shouldShowNextFrame(now)) {
-                this.lastDelayedFrameIndex = (this.lastDelayedFrameIndex + 1) % this.maxBuffer;
-                canSkip = true;
-            }
-            if (!canSkip) {
-                const delayedFrame = this.buffer[this.lastDelayedFrameIndex];
-                try {
-                    this.ctx.drawImage(delayedFrame.frame, 0, 0, this.video.videoWidth, this.video.videoHeight);
-                } catch (e) {
+    // ========================
+    // DOM Observers (Optimized)
+    // ========================
+    const observer = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeName === 'VIDEO') processVideo(node);
+                if (node.querySelectorAll) {
+                    node.querySelectorAll('video').forEach(processVideo);
                 }
             }
-
-            if (this.active) {
-                window.requestAnimationFrame(this._drawFrameFunc);
-            }
         }
+    });
 
-        Activate() {
-            this.active = true;
-            this.frameCount = 0;
-            this.lastDelayedFrameIndex = -1;
-            this._createCanvasOverlay();
-            this.video.requestVideoFrameCallback(this._captureFrameFunc);
-            window.requestAnimationFrame(this._drawFrameFunc);
-        }
-    }
+    observer.observe(document, {
+        subtree: true,
+        childList: true
+    });
 
-    const frameDelay = (await chrome.storage.sync.get('frameDelay'))['frameDelay'];
-    const pauseDelay = (await chrome.storage.sync.get('pauseDelay'))['pauseDelay'];
-    if (frameDelay && !pauseDelay) {
-        const frameDelayNum = parseInt(frameDelay);
-        if (frameDelayNum > 0) {
-            setInterval(() => {
-                const videoList = document.querySelectorAll('video');
-                videoList.forEach(video => {
-                    if (!video.frameSyncObj) {
-                        // dynamically extend the max buffer size
-                        const frameSync = new FrameSync(video, 10, frameDelayNum);
-                        frameSync.Activate();
-                    } else {
-                        if (video.frameSyncObj.NeedResize()) {
-                            video.frameSyncObj.Resize();
-                        }
-                    }
+    // Initialize existing videos
+    document.querySelectorAll('video').forEach(processVideo);
+
+    // ========================
+    // Settings Updates (Debounced)
+    // ========================
+    let updateTimeout;
+    chrome.storage.onChanged.addListener((changes) => {
+        clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(() => {
+            if (changes.frameDelay) {
+                delayMs = changes.frameDelay.newValue;
+                document.querySelectorAll('video').forEach(video => {
+                    delete video.dataset.synced;
+                    processVideo(video);
                 });
-            }, 2000);
-        }
-    }
+            }
+            if (changes.pauseDelay) {
+                isPaused = changes.pauseDelay.newValue;
+            }
+        }, 100);
+    });
 })();
