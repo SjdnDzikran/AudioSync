@@ -12,17 +12,9 @@ AudioSync eliminates audio-video latency *without* altering video frames, ensuri
 
 ---
 
-## Why AudioSync? 🤔  
-
-### The Problem with Frame-Delay Tools  
-Most sync solutions delay video frames, which:  
-- 🖥️ **Break premium platforms** (trigger black screens on Netflix/Disney+).  
-- 🎨 **Disable visual enhancements** (HDR, dynamic contrast, GPU optimizations).  
-
-### AudioSync’s Solution  
-By **delaying video playback initialization** instead of altering frames:  
+## Why AudioSync? 🤔   
 - ✅ **DRM-safe** – Works on Netflix, Disney+, and other premium platforms.  
-- ✅ **Full visual fidelity** – HDR/GPU enhancements remain untouched.  
+- ✅ **Full visual fidelity** – Any HDR or video enhancements remain untouched.  
 - ✅ **Simple & lightweight** – No complex frame processing.
 
 ---
