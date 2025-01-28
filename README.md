@@ -7,10 +7,8 @@ AudioSync eliminates audio-video latency *without* altering video frames, ensuri
 ---
 
 ## Features ✨  
-- 🎧 **Audio-first sync** – Adjusts audio speed, not video frames.  
-- 🚫 **No DRM conflicts** – Works flawlessly on Netflix, Disney+, and more.  
-- 🎨 **Retains HDR/GPU optimizations** – No visual downgrades.  
-- ⚙️ **Custom latency tuning** – Input your Bluetooth delay (e.g., 300ms).  
+- ⏱️ **Simple latency tuning** – Set your Bluetooth delay (e.g., 300ms).  
+- 🌐 **Works globally** – YouTube, Netflix, Twitch, Disney+, and more. 
 
 ---
 
@@ -22,10 +20,10 @@ Most sync solutions delay video frames, which:
 - 🎨 **Disable visual enhancements** (HDR, dynamic contrast, GPU optimizations).  
 
 ### AudioSync’s Solution  
-By syncing **audio playback speed** instead of video:  
-- ✅ **Works everywhere** – Free and DRM-protected platforms.  
-- ✅ **Preserves video quality** – No interference with HDR/GPU features.  
-- ✅ **Zero visual artifacts** – No black screens or blocks.  
+By **delaying video playback initialization** instead of altering frames:  
+- ✅ **DRM-safe** – Works on Netflix, Disney+, and other premium platforms.  
+- ✅ **Full visual fidelity** – HDR/GPU enhancements remain untouched.  
+- ✅ **Simple & lightweight** – No complex frame processing.
 
 ---
 
@@ -60,9 +58,8 @@ By syncing **audio playback speed** instead of video:
 
 ## Credits 🙌  
 AudioSync is a modified version of [FrameSync](https://github.com/maggch97/Frame-Sync.git), licensed under [GPLv2](LICENSE). Key changes include:  
-- Replaced frame delays with audio speed adjustment.  
-- Added Web Audio API for pitch correction.  
-- Refactored UI for latency tuning.  
+- Replaced frame delays with playback initialization delays.  
+- Removed canvas-based rendering to preserve DRM/HDR.
 
 ---
 
