@@ -26,11 +26,24 @@ async function startTest() {
     resultElement.textContent = 'Initializing...';
     resultElement.style.color = getComputedStyle(document.documentElement).getPropertyValue('--md-ref-palette-on-surface');
 
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let audioContext;
     try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Resume audio context if suspended
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
         let stream;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
         } catch (e) {
             resultElement.textContent = 'Microphone access required';
             resultElement.style.color = '#EA4335';
@@ -45,31 +58,43 @@ async function startTest() {
         const recorder = audioContext.createScriptProcessor(bufferSize, 1, 1);
         const audioData = [];
 
+        // Configure audio processing chain
         source.connect(recorder);
         recorder.connect(audioContext.destination);
         const recordingStartTime = audioContext.currentTime;
 
         recorder.onaudioprocess = function (e) {
-            audioData.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+            const channelData = e.inputBuffer.getChannelData(0);
+            audioData.push(new Float32Array(channelData));
         };
 
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Add pre-recording silence to account for initialization
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         const oscillator = audioContext.createOscillator();
-        oscillator.frequency.value = 12000;
-        oscillator.type = 'sine';
-        oscillator.connect(audioContext.destination);
+        const gainNode = audioContext.createGain();
+        
+        // Use lower frequency for better microphone compatibility
+        oscillator.frequency.value = 1000;
+        oscillator.type = 'square';
+        gainNode.gain.value = 0.5;
 
-        const beepPlayTime = audioContext.currentTime;
-        oscillator.start();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        const beepPlayTime = audioContext.currentTime + 0.1; // Add small delay
+        oscillator.start(beepPlayTime);
         oscillator.stop(beepPlayTime + beepDuration);
 
-        await new Promise(resolve => setTimeout(resolve, 4000));
+        // Record for sufficient time (beep duration + safety margin)
+        await new Promise(resolve => setTimeout(resolve, (beepDuration + 0.5) * 1000));
 
         // Cleanup
         recorder.disconnect();
         source.disconnect();
         stream.getTracks().forEach(track => track.stop());
+        oscillator.disconnect();
+        gainNode.disconnect();
 
         // Process audio
         const recordedAudio = new Float32Array(audioData.reduce((acc, val) => acc + val.length, 0));
@@ -90,7 +115,7 @@ async function startTest() {
         }, sampleRate);
 
         if (beepStartIndex === -1) {
-            resultElement.textContent = 'No beep detected';
+            resultElement.textContent = 'No beep detected - try increasing volume';
             resultElement.style.color = '#EA4335';
         } else {
             const delay = ((recordingStartTime + (beepStartIndex / sampleRate)) - beepPlayTime) * 1000;
@@ -100,9 +125,13 @@ async function startTest() {
         }
 
     } catch (e) {
-        console.error(e);
-        resultElement.textContent = 'Measurement failed';
+        console.error('Measurement error:', e);
+        resultElement.textContent = 'Measurement failed: ' + e.message;
         resultElement.style.color = '#EA4335';
+    } finally {
+        if (audioContext) {
+            await audioContext.close();
+        }
     }
 }
 
@@ -110,15 +139,19 @@ function findBeepStart(audioBuffer, sampleRate) {
     const windowSize = Math.floor(beepDuration * sampleRate);
     let maxEnergy = 0;
     let beepStart = -1;
-    const threshold = 0.05;
+    const threshold = 0.02; // Lowered threshold
 
-    for (let i = 0; i < audioBuffer.length - windowSize; i++) {
+    // Normalize audio data first
+    const maxAmplitude = Math.max(...audioBuffer.map(Math.abs));
+    const normalizedData = audioBuffer.map(x => x / (maxAmplitude || 1));
+
+    for (let i = 0; i < normalizedData.length - windowSize; i++) {
         let energy = 0;
         for (let j = 0; j < windowSize; j++) {
-            energy += Math.abs(audioBuffer[i + j]);
+            energy += Math.abs(normalizedData[i + j]);
         }
         
-        if (energy > maxEnergy && audioBuffer[i] > threshold) {
+        if (energy > maxEnergy && normalizedData[i] > threshold) {
             maxEnergy = energy;
             beepStart = i;
         }
